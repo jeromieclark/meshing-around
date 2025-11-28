@@ -95,6 +95,8 @@ def auto_response(message, snr, rssi, hop, pkiStatus, message_from_id, channel_n
     "moon": lambda: handle_moon(message_from_id, deviceID, channel_number),
     "motd": lambda: handle_motd(message, message_from_id, isDM),
     "mwx": lambda: handle_mwx(message_from_id, deviceID, channel_number),
+    "nzuv": lambda: handle_nzuv(message_from_id, deviceID, channel_number),
+    "nztide": lambda: handle_nztide(message_from_id, deviceID, channel_number),
     "ping": lambda: handle_ping(message_from_id, deviceID, message, hop, snr, rssi, isDM, channel_number),
     "pinging": lambda: handle_ping(message_from_id, deviceID, message, hop, snr, rssi, isDM, channel_number),
     "pong": lambda: "🏓PING!!🛜",
@@ -246,7 +248,19 @@ def check_and_play_game(tracker, message_from_id, message_string, rxNode, channe
                 send_message(handle_game_func(message_string, message_from_id, rxNode), channel_number, message_from_id, rxNode)
                 return True, game_name
     return False, "None"
-    
+
+def handle_nzuv(message_from_id, deviceID, channel_number):
+    niwa = Niwa(niwaAPIKey)
+    location = get_node_location(message_from_id, deviceID)
+    msg += niwa.get_uv_data(location.split(",")[0], location.split(",")[1], deviceID)
+    return msg
+
+def handle_nztide(message_from_id, deviceID, channel_number):
+    niwa = Niwa(niwaAPIKey)
+    location = get_node_location(message_from_id, deviceID)
+    msg += niwa.get_tide_data(location.split(",")[0], location.split(",")[1], deviceID)
+    return msg
+
 def handle_ping(message_from_id, deviceID,  message, hop, snr, rssi, isDM, channel_number):
     global multiPing
     myNodeNum = globals().get(f'myNodeNum{deviceID}', 777)

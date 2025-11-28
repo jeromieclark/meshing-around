@@ -8,6 +8,7 @@ import time
 import asyncio
 import random
 import base64
+
 # not ideal but needed?
 import contextlib # for suppressing output on watchdog
 import io # for suppressing output on watchdog
@@ -125,7 +126,13 @@ if coastalEnabled:
     from modules.locationdata import * # from the spudgunman/meshing-around repo
     trap_list = trap_list + ("mwx","tide",)
     help_message = help_message + ", mwx, tide"
-        
+
+# NIWA - New Zealand Weather
+if niwaEnabled:
+    from modules.niwa import *
+    trap_list = trap_list + ("nzuv","nztide",)
+    help_message = help_message + ", nzuv, nztide"
+
 # BBS Configuration
 if bbs_enabled:
     from modules.bbstools import * # from the spudgunman/meshing-around repo

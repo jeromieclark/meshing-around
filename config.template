@@ -265,6 +265,10 @@ enableDEalerts = False
 # find your regional codet at https://www.xrepository.de/api/xrepository/urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:rs_2021-07-31/download/Regionalschl_ssel_2021-07-31.json
 myRegionalKeysDE = 110000000000,120510000000
 
+# New Zealand - NIWA UV and Tide Data
+niwaEnabled = False
+niwaAPIKey = "YOUR_API_KEY"
+
 # Alerts are sent to the emergency_handler interface and channel duplicate messages are send here if set
 eAlertBroadcastCh = 
 

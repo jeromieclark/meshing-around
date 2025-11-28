@@ -321,6 +321,8 @@ try:
     coastalEnabled = config['location'].getboolean('coastalEnabled', False) # default False
     myCoastalZone = config['location'].get('myCoastalZone', None) # default None
     coastalForecastDays = config['location'].getint('coastalForecastDays', 3) # default 3 days
+    niwaEnabled = config['location'].getboolean('niwaEnabled', False) # default False
+    niwaAPIKey = config['location'].get('niwaAPIKey', '') # default empty
 
     # location alerts
     eAlertBroadcastEnabled = config['location'].getboolean('eAlertBroadcastEnabled', False) # old deprecated name
