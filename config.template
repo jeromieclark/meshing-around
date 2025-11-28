@@ -267,7 +267,7 @@ myRegionalKeysDE = 110000000000,120510000000
 
 # New Zealand - NIWA UV and Tide Data
 niwaEnabled = False
-niwaAPIKey = "YOUR_API_KEY"
+niwaAPIKey = YOUR_API_KEY
 
 # Alerts are sent to the emergency_handler interface and channel duplicate messages are send here if set
 eAlertBroadcastCh = 
