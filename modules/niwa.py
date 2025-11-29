@@ -146,7 +146,7 @@ class Niwa:
 
     def get_uv_data(self, lat, long, deviceID): 
         session = self.__get_uv_session(deviceID)
-        logger.debug(f"get_uv_data - session: str(session)")
+        logger.debug(f"get_uv_data - session: {str(session)}")
         data = self.__retrieve_uv_data(lat, long, deviceID)
         if data == ERROR_FETCHING_DATA:
             return ERROR_FETCHING_DATA
