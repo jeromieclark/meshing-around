@@ -252,13 +252,13 @@ def check_and_play_game(tracker, message_from_id, message_string, rxNode, channe
 def handle_nzuv(message_from_id, deviceID, channel_number):
     niwa = Niwa(niwaAPIKey)
     location = get_node_location(message_from_id, deviceID)
-    msg += niwa.get_uv_data(location.split(",")[0], location.split(",")[1], deviceID)
+    msg = niwa.get_uv_data(location[0], location[1], deviceID)
     return msg
 
 def handle_nztide(message_from_id, deviceID, channel_number):
     niwa = Niwa(niwaAPIKey)
     location = get_node_location(message_from_id, deviceID)
-    msg += niwa.get_tide_data(location.split(",")[0], location.split(",")[1], deviceID)
+    msg = niwa.get_tide_data(location[0], location[1], deviceID)
     return msg
 
 def handle_ping(message_from_id, deviceID,  message, hop, snr, rssi, isDM, channel_number):

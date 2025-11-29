@@ -3,10 +3,7 @@ from modules.settings import niwaEnabled, niwaAPIKey
 from modules.settings import ERROR_FETCHING_DATA
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from collections import defaultdict, OrderedDict
-from prettytable import PrettyTable
 import requests
-
 class Niwa:
 
     def __init__(self, api_key):
@@ -15,15 +12,53 @@ class Niwa:
         self.tide_api_url = "https://api.niwa.co.nz/tides/data"
         self.user_agent = "Meshing-Around Bot/1.0 (+https://meshing-around.com)"
         self.timezone = ZoneInfo("Pacific/Auckland") # Since NIWA data is NZ specific
+        self.uv_records_per_response = 4
         
         # Caches for data to minimize API calls
         self.cache_length_hours = 8
         self.cache_max_records = 150
 
         # Cache a tuple of (tide_data, timestamp, deviceID)
-        self.tide_data_cache = []
         self.uv_data_cache = []
- 
+        self.tide_data_cache = []
+
+        # Since this output can be long, prompt user for "more"
+        self.uv_sessions = []
+
+    def __prune_uv_sessions(self):        
+        for session in self.uv_sessions:
+            if (datetime.now(timezone.utc) - session['last_access']).total_seconds() > self.cache_length_hours * 3600:
+                self.uv_sessions.remove(session)
+                continue
+
+    def __get_uv_session(self, deviceID): 
+        self.__prune_uv_sessions()
+        for session in self.uv_sessions:
+            if session['deviceID'] == deviceID:
+                return session
+
+        # Create and append a new session if none exists
+        new_session = {
+            'deviceID': deviceID,
+            'last_access': datetime.now(timezone.utc),
+            'begin': 0
+        }
+        self.uv_sessions.append(new_session)
+        return new_session
+
+    def __update_uv_session(self, deviceID, last_access, begin): 
+        session = self.__get_uv_session(deviceID)
+        if session:
+            session['last_access'] = last_access
+            session['begin'] = begin
+        else:
+            self.uv_sessions.append({
+                'deviceID': deviceID,
+                'last_access': last_access,
+                'begin': begin # index for pagination
+            })
+        return True
+
     def get_tide_data(self, lat, long, deviceID): 
         data = self.__retrieve_tide_data(lat, long, deviceID)
         if data == ERROR_FETCHING_DATA:
@@ -32,8 +67,6 @@ class Niwa:
         return formatted_data
 
     def __format_tide_data(self, tidedata): 
-        table = PrettyTable()
-        table.field_names = ["Date", "Time", "Height (m)"]
 
         output = f"\nNIWA Tide Data for location ({tidedata['metadata']['latitude']}, {tidedata['metadata']['longitude']}):\n"
         
@@ -42,14 +75,8 @@ class Niwa:
             dt = datetime.fromisoformat(value['time'])
             # Since this data is only for New Zealand, convert to Auckland timezone
             akl_dt = dt.astimezone(timezone.utc).astimezone(self.timezone)
+            output += f"{akl_dt.strftime("%Y-%m-%d")} {akl_dt.strftime("%H:%M")} {value['value']}m \n"
 
-            table.add_row([ 
-                akl_dt.strftime("%Y-%m-%d"), 
-                akl_dt.strftime("%H:%M"), 
-                value['value']
-            ])
-
-        output += table.get_string()
         return output
 
     def __retrieve_tide_data(self, lat, long, deviceID): 
@@ -120,10 +147,11 @@ class Niwa:
         return True
 
     def get_uv_data(self, lat, long, deviceID): 
+        session = self.__get_uv_session(deviceID)
         data = self.__retrieve_uv_data(lat, long, deviceID)
         if data == ERROR_FETCHING_DATA:
             return ERROR_FETCHING_DATA
-        formatted_data = self.__format_uv_data(data)
+        formatted_data = self.__format_uv_data(data, deviceID, session['begin'])
         return formatted_data
     
     def get_uv_risk_string(self, uv_index):
@@ -137,7 +165,7 @@ class Niwa:
         if uv_index < 3:
             return "Low"
         elif 3 <= uv_index < 6:
-            return "Moderate"
+            return "Medium"
         elif 6 <= uv_index < 8:
             return "High"
         elif 8 <= uv_index < 11:
@@ -145,24 +173,21 @@ class Niwa:
         else:
             return "Extreme"
 
-    def __format_uv_data(self, uvdata): 
-        table = PrettyTable()
-        #table.field_names = ["Time", "Clear Sky", "Clear Sky Risk", "Cloudy Sky", "Cloudy Sky Risk"]
-
+    def __format_uv_data(self, uvdata, deviceID, begin=0): 
+       
         output = f"\nNIWA UV Forecast Data for location ({uvdata['coord']}):\n"
         
         times = []
         for value in uvdata['products'][0]['values']:
             # Parse ISO 8601 time and convert to local timezone
             dt = datetime.fromisoformat(value['time'])
-            # Since this data is only for New Zealand, convert to Auckland timezone
             akl_dt = dt.astimezone(timezone.utc).astimezone(self.timezone)
-            times.append(akl_dt.strftime("%Y-%m-%d %H:%M"))
+            times.append(akl_dt.strftime("%d %b %H:%M"))
 
         clear_sky_values = []
         clear_sky_risk = []
         for value in uvdata['products'][1]['values']: 
-            clear_sky_values.append(value['value'])
+            clear_sky_values.append('{0:3.1f}'.format(value['value']))
             clear_sky_risk.append(self.get_uv_risk_string(value['value']))
 
         cloudy_sky_values = []
@@ -171,13 +196,38 @@ class Niwa:
             cloudy_sky_values.append(value['value'])
             cloud_sky_risk.append(self.get_uv_risk_string(value['value']))
 
-        table.add_column(f"Time {self.timezone}", times)
-        table.add_column("Clear Sky", clear_sky_values)
-        table.add_column("Clear Sky Risk", clear_sky_risk)
-        table.add_column("Cloudy Sky", cloudy_sky_values)
-        table.add_column("Cloudy Sky Risk", cloud_sky_risk)
+        # combine lists into dictionary for ordered output
+        uv_dict = []
+        for i in range(len(times)):
+            uv_dict.append({
+                "time": times[i],
+                "clear_sky_value": clear_sky_values[i],
+                "clear_sky_risk": clear_sky_risk[i],
+                "cloudy_sky_value": cloudy_sky_values[i],
+                "cloudy_sky_risk": cloud_sky_risk[i]
+            })
+    
+        end = begin + self.uv_records_per_response
 
-        output += table.get_string()
+        # If we've reached the end of the data, reset session to 0
+        isEnd = False
+        if end > len(uv_dict):
+            end = len(uv_dict)
+            self.__update_uv_session(deviceID, datetime.now(timezone.utc), 0)
+            isEnd = True
+        else: 
+            self.__update_uv_session(deviceID, datetime.now(timezone.utc), end)
+
+        for item in list(uv_dict)[begin:end]:
+            output += f"{item['time']}\n"
+            output += f"Clear Sky: {item['clear_sky_value']} ({item['clear_sky_risk']})\n"
+            output += f"Cloudy Sky: {item['cloudy_sky_value']} ({item['cloudy_sky_risk']})\n\n"
+
+        if isEnd == False:  
+            output += "Show More?  Send \"nzuv\" to continue."
+        else: 
+            output += "Forecast complete."
+
         return output
 
     def __query_uv_data(self, lat, long, deviceID): 
