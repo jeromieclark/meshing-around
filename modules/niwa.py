@@ -71,11 +71,9 @@ class Niwa:
         output = f"\nNIWA Tide Data for location ({tidedata['metadata']['latitude']}, {tidedata['metadata']['longitude']}):\n"
         
         for value in tidedata['values']:
-            # Parse ISO 8601 time and convert to local timezone
+            # NIWA will send the forecast data in local time (UTC+19), so no timezone math required
             dt = datetime.fromisoformat(value['time'])
-            # Since this data is only for New Zealand, convert to Auckland timezone
-            akl_dt = dt.astimezone(timezone.utc).astimezone(self.timezone)
-            output += f"{akl_dt.strftime("%Y-%m-%d")} {akl_dt.strftime("%H:%M")} {value['value']}m \n"
+            output += f"{dt.strftime("%Y-%m-%d")} {dt.strftime("%H:%M")} {value['value']}m \n"
 
         return output
 
@@ -179,10 +177,9 @@ class Niwa:
         
         times = []
         for value in uvdata['products'][0]['values']:
-            # Parse ISO 8601 time and convert to local timezone
+            # Parse ISO 8601 time
             dt = datetime.fromisoformat(value['time'])
-            akl_dt = dt.astimezone(timezone.utc).astimezone(self.timezone)
-            times.append(akl_dt.strftime("%d %b %H:%M"))
+            times.append(dt.strftime("%d %b %H:%M"))
 
         clear_sky_values = []
         clear_sky_risk = []
