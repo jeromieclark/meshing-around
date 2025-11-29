@@ -12,7 +12,7 @@ class Niwa:
         self.tide_api_url = "https://api.niwa.co.nz/tides/data"
         self.user_agent = "Meshing-Around Bot/1.0 (+https://meshing-around.com)"
         self.timezone = ZoneInfo("Pacific/Auckland") # Since NIWA data is NZ specific
-        self.uv_records_per_response = 4
+        self.uv_records_per_response = 3
         
         # Caches for data to minimize API calls
         self.cache_length_hours = 8
@@ -49,8 +49,15 @@ class Niwa:
     def __update_uv_session(self, deviceID, last_access, begin): 
         session = self.__get_uv_session(deviceID)
         if session:
-            session['last_access'] = last_access
-            session['begin'] = begin
+            # Update the actual entry in self.uv_sessions (not just the local 'session' reference)
+            for idx, s in enumerate(self.uv_sessions):
+                if s.get('deviceID') == deviceID:
+                    self.uv_sessions[idx] = {
+                        'deviceID': deviceID,
+                        'last_access': last_access,
+                        'begin': begin
+                    }
+                    break
         else:
             self.uv_sessions.append({
                 'deviceID': deviceID,
